@@ -1,4 +1,3 @@
-import { Component } from 'react';
 import { Searchbar } from './Searchbar/Searchbar';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Button } from './Button/Button';
@@ -7,81 +6,72 @@ import { fetchImages } from 'api';
 import { Layout } from './Layout';
 import toast, { Toaster } from 'react-hot-toast';
 import '../styles.css';
+import { useEffect, useState } from 'react';
 
 const per_page = 12;
 
-export class App extends Component {
-  state = {
-    query: '',
-    images: [],
-    page: 1,
-    loading: false,
-    totalPages: 1,
-  };
+export const App = () => {
+  const [query, setQuery] = useState('');
+  const [images, setImages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [totalPages, setTotalPages] = useState('');
 
-  async componentDidUpdate(prevProps, prevState) {
-    const { query, page } = this.state;
-
-    if (prevState.query !== query || prevState.page !== page) {
+  useEffect(() => {
+    const getImages = async () => {
+      if (query === '') {
+        return;
+      }
       try {
-        this.setState({ loading: true });
+        setLoading(true);
         const searchQuery = query.slice(query.indexOf('/') + 1);
         const getImages = await fetchImages(searchQuery, page);
         const { hits, total } = getImages;
-        const totalPages = Math.ceil(total / per_page);
+        const newTotalPages = Math.ceil(total / per_page);
 
         if (!hits.length) {
           toast.error('Sorry,nothing found!', {
             duration: 2000,
           });
         } else {
-          this.setState(prevState => ({
-            images: page > 1 ? [...prevState.images, ...hits] : hits,
-            totalPages,
-          }));
-
-          if (page === totalPages) {
-            toast.success('That`s all images!');
-          }
+          setImages(prevState => (page > 1 ? [...prevState, ...hits] : hits));
+          setTotalPages(newTotalPages);
+        }
+        if (page === newTotalPages) {
+          toast.success('That`s all images!');
         }
       } catch (error) {
         console.log(error);
       } finally {
-        this.setState({ loading: false });
+        setLoading(false);
       }
-    }
-  }
+    };
+    getImages();
+  }, [query, page]);
 
-  changeQuery = newQuery => {
+  const changeQuery = newQuery => {
     if (newQuery !== '') {
-      this.setState({
-        query: `${Date.now()}/${newQuery}`,
-        images: [],
-        page: 1,
-        totalPages: 1,
-      });
+      setQuery(`${Date.now()}/${newQuery}`);
+      setImages([]);
+      setPage(1);
+      setTotalPages(1);
     }
   };
 
-  addMoreImages = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
+  const addMoreImages = () => {
+    setPage(prevState => prevState + 1);
   };
 
-  render() {
-    const { images, loading, page, totalPages } = this.state;
-    return (
-      <Layout>
-        <Searchbar onSubmit={this.changeQuery} />
-        {images.length > 0 && <ImageGallery images={images} />}
+  return (
+    <Layout>
+      <Searchbar onSubmit={changeQuery} />
+      {images.length > 0 && <ImageGallery images={images} />}
 
-        {page < totalPages && images.length > 0 && (
-          <Button handleClick={this.addMoreImages} />
-        )}
-        <Toaster />
-        {loading && <Loader />}
-      </Layout>
-    );
-  }
-}
+      {page < totalPages && images.length > 0 && (
+        <Button handleClick={addMoreImages} />
+      )}
+      <Toaster />
+      {loading && <Loader />}
+    </Layout>
+  );
+};
